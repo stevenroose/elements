@@ -59,6 +59,7 @@ BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
     # vv First elements tests vv
     'feature_fedpeg.py',
+    'rpc_calcfastmerkleroot.py',
     # Longest test should go first, to favor running tests in parallel
     'mempool_packages.py',
     'feature_maxuploadtarget.py',
