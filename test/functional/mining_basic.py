@@ -108,7 +108,7 @@ class MiningTest(BitcoinTestFramework):
 
         self.log.info("getblocktemplate: Test bad tx count")
         # The tx count is immediately after the block header
-        TX_COUNT_OFFSET = len(CBlockHeader().serialize())
+        TX_COUNT_OFFSET = len(super(CBlock, block).serialize())
         bad_block_sn = bytearray(block.serialize())
         assert_equal(bad_block_sn[TX_COUNT_OFFSET], 1)
         bad_block_sn[TX_COUNT_OFFSET] += 1
@@ -140,8 +140,6 @@ class MiningTest(BitcoinTestFramework):
         self.log.info('submitheader tests')
         assert_raises_rpc_error(-22, 'Block header decode failed', lambda: node.submitheader(hexdata='xx' * TX_COUNT_OFFSET))
         assert_raises_rpc_error(-22, 'Block header decode failed', lambda: node.submitheader(hexdata='ff' * (TX_COUNT_OFFSET-2)))
-        import pdb
-        pdb.set_trace()
         assert_raises_rpc_error(-25, 'Must submit previous header', lambda: node.submitheader(hexdata=super(CBlock, bad_block).serialize().hex()))
 
         block.solve()

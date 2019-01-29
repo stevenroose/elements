@@ -267,7 +267,9 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(15)
         b23 = self.next_block(23, spend=out[6])
         tx = CTransaction()
-        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
+        # ELEMENTS: mysterious off-by-one
+        #script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 70
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b23.vtx[1].sha256, 0)))
@@ -280,7 +282,9 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1")
         self.move_tip(15)
         b24 = self.next_block(24, spend=out[6])
-        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 69
+        # ELEMENTS: mysterious off-by-one
+        #script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 70
         script_output = CScript([b'\x00' * (script_length + 1)])
         tx.vout = [CTxOut(0, script_output)]
         b24 = self.update_block(24, [tx])
@@ -819,7 +823,9 @@ class FullBlockTest(BitcoinTestFramework):
         tx = CTransaction()
 
         # use canonical serialization to calculate size
-        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 69
+        # ELEMENTS: mysterious off-by-one
+        #script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 69
+        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 70
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].sha256, 0)))
@@ -1172,7 +1178,9 @@ class FullBlockTest(BitcoinTestFramework):
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend)
             tx = CTransaction()
-            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
+            # ELEMENTS: mysterious off-by-one
+            #script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
+            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 70
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
