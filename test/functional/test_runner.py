@@ -60,6 +60,7 @@ BASE_SCRIPTS = [
     # vv First elements tests vv
     'feature_fedpeg.py',
     'rpc_calcfastmerkleroot.py',
+    'feature_txwitness.py',
     # Longest test should go first, to favor running tests in parallel
     'mempool_packages.py',
     'feature_maxuploadtarget.py',
