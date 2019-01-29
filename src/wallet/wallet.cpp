@@ -2662,7 +2662,8 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
 }
 
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet,
-                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+                         int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign,
+                         std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, bool fIgnoreBlindFail)
 {
     CAmount nValue = 0;
     int nChangePosRequest = nChangePosInOut;
@@ -4510,3 +4511,27 @@ bool CWallet::SetOfflineCounter(int counter) {
     offline_counter = counter;
     return true;
 }
+
+//
+// ELEMENTS WALLET ADDITIONS
+
+CAmount CWalletTx::GetOutputValueOut(unsigned int nOut) const {
+    assert(nOut < tx->vout.size());
+    const CTxOut& out = tx->vout[nOut];
+    const CTxWitness& wit = tx->wit;
+    CAmount ret;
+    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, &ret, NULL, NULL, NULL, NULL);
+    return ret;
+}
+
+CAsset CWalletTx::GetOutputAsset(unsigned int nOut) const {
+    assert(nOut < tx->vout.size());
+    const CTxOut& out = tx->vout[nOut];
+    const CTxWitness& wit = tx->wit;
+    CAsset ret;
+    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, NULL, NULL, NULL, &ret, NULL);
+    return ret;
+}
+
+// END ELEMENTS
+//

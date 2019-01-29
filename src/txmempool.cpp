@@ -661,9 +661,8 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
 {
     CTransaction tx = entry.GetTx();
     CValidationState state;
-    CAmount txfee = 0;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee, setPeginsSpent);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, setPeginsSpent);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
 

@@ -11,6 +11,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <primitives/confidential.h>
 #include <primitives/txwitness.h>
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
@@ -227,7 +228,9 @@ public:
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CConfidentialAsset nAsset;
+    CConfidentialValue nValue;
+    CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
     CTxOut()
@@ -235,30 +238,44 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(nValue);
+        if (g_con_elementswitness) {
+            READWRITE(nAsset);
+            READWRITE(nValue);
+            READWRITE(nNonce);
+        } else {
+            READWRITE(nValue.GetAmount());
+        }
         READWRITE(scriptPubKey);
     }
 
     void SetNull()
     {
-        nValue = -1;
+        nAsset.SetNull();
+        nValue.SetNull();
+        nNonce.SetNull();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1);
+        return nAsset.IsNull() && nValue.IsNull() && nNonce.IsNull() && scriptPubKey.empty();
+    }
+
+    bool IsFee() const {
+        return scriptPubKey == CScript() && nValue.IsExplicit() && nAsset.IsExplicit();
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue       == b.nValue &&
+        return (a.nAsset == b.nAsset &&
+                a.nValue == b.nValue &&
+                a.nNonce == b.nNonce &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -472,7 +489,7 @@ public:
     uint256 GetWitnessOnlyHash() const;
 
     // Return sum of txouts.
-    CAmount GetValueOut() const;
+    CAmountMap GetValueOutMap() const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 

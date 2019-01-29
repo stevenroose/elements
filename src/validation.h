@@ -12,6 +12,7 @@
 
 #include <amount.h>
 #include <coins.h>
+#include <confidential_validation.h>
 #include <fs.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <policy/feerate.h>

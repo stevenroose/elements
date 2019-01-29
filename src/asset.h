@@ -8,6 +8,7 @@
 
 #include <amount.h>
 #include <serialize.h>
+#include <univalue.h>
 
 /**
  *  Native Asset Issuance
@@ -95,5 +96,14 @@ bool operator>(const CAmountMap& a, const CAmountMap& b);
 bool operator>=(const CAmountMap& a, const CAmountMap& b);
 bool operator==(const CAmountMap& a, const CAmountMap& b);
 bool operator!=(const CAmountMap& a, const CAmountMap& b);
+
+UniValue AmountMapToUniv(const CAmountMap& mapValue);
+
+inline bool MoneyRange(const CAmountMap& mapValue) {
+    for(CAmountMap::const_iterator it = mapValue.begin(); it != mapValue.end(); it++)
+        if (it->second < 0 || it->second > MAX_MONEY)
+            return false;
+   return true;
+}
 
 #endif //  BITCOIN_AMOUNT_H

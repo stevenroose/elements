@@ -489,6 +489,12 @@ public:
     bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state);
 
     std::set<uint256> GetConflicts() const;
+
+    // ELEMENTS:
+    //! Returns either the value out (if it is known) or -1
+    CAmount GetOutputValueOut(unsigned int nOut) const;
+
+    CAsset GetOutputAsset(unsigned int nOut) const;
 };
 
 class COutput

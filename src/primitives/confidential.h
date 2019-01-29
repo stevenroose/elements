@@ -6,8 +6,9 @@
 #include <asset.h>
 #include <script/script.h>
 #include <serialize.h>
-#include <uint256.h>
 #include <span.h>
+#include <uint256.h>
+#include <utilstrencodings.h>
 
 /**
  * Confidential assets, values, and nonces all share enough code in common
@@ -74,6 +75,8 @@ public:
     {
         return IsNull() || IsExplicit() || IsCommitment();
     }
+
+    std::string GetHex() const { return HexStr(vchCommitment); }
 
     friend bool operator==(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
     {

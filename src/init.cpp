@@ -1292,6 +1292,9 @@ bool AppInitMain()
     RegisterZMQRPCCommands(tableRPC);
 #endif
 
+    // ELEMENTS:
+    policyAsset = CAsset(uint256S(gArgs.GetArg("-feeasset", chainparams.GetConsensus().pegged_asset.GetHex())));
+
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
      * that the server is there and will be ready later).  Warmup mode will

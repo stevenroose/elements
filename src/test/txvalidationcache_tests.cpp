@@ -50,9 +50,13 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
         spends[i].vin.resize(1);
         spends[i].vin[0].prevout.hash = m_coinbase_txns[0]->GetHash();
         spends[i].vin[0].prevout.n = 0;
-        spends[i].vout.resize(1);
-        spends[i].vout[0].nValue = 11*CENT;
+        spends[i].vout.resize(2);
+        spends[i].vout[0].nValue = MAX_MONEY-11*CENT;
         spends[i].vout[0].scriptPubKey = scriptPubKey;
+        spends[i].vout[0].nAsset = Params().GetConsensus().pegged_asset;
+        spends[i].vout[1].nValue = 11*CENT;
+        spends[i].vout[1].nAsset = Params().GetConsensus().pegged_asset;
+        spends[i].vout[1].scriptPubKey = CScript();
 
         // Sign:
         std::vector<unsigned char> vchSig;

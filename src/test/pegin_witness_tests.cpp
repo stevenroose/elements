@@ -55,10 +55,6 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     // Missing byte on each field to make claim ill-formatted
     // This will break deserialization and other data-matching checks
     for (unsigned int i = 0; i < witness.stack.size(); i++) {
-        //TODO(rebase) CA remove this exception
-        if (i == 1) {
-            continue;
-        }
         witness.stack[i].pop_back();
         BOOST_CHECK(!IsValidPeginWitness(witness, prevout));
         witness.stack = witness_stack;
@@ -99,16 +95,14 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     BOOST_CHECK(tx.witness.vtxinwit[0].m_pegin_witness.stack == witness_stack);
     BOOST_CHECK(tx.vin[0].m_is_pegin);
     // Check that serialization doesn't cause issuance to become non-null
-    //TODO(rebase) CA
-    //BOOST_CHECK(tx.vin[0].assetIssuance.IsNull());
+    BOOST_CHECK(tx.vin[0].assetIssuance.IsNull());
     BOOST_CHECK(IsValidPeginWitness(tx.witness.vtxinwit[0].m_pegin_witness, prevout));
 
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     CValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
-    CAmount txfee;
-    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, setPeginsSpent));
     BOOST_CHECK(setPeginsSpent.size() == 1);
     setPeginsSpent.clear();
 
@@ -116,7 +110,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn(tx);
     mtxn.witness.vtxinwit[0].m_pegin_witness.SetNull();
     CTransaction tx2(mtxn);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, setPeginsSpent));
     BOOST_CHECK(setPeginsSpent.empty());
 
     // Invalidate peg-in (and spending) authorization by pegin marker.
@@ -125,7 +119,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn2(tx);
     mtxn2.vin[0].m_is_pegin = false;
     CTransaction tx3(mtxn2);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, setPeginsSpent));
     BOOST_CHECK(setPeginsSpent.empty());
 
 

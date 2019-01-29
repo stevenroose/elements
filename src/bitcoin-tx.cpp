@@ -327,7 +327,7 @@ static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& str
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -401,7 +401,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -473,7 +473,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 

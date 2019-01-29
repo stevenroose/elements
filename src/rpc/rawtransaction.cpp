@@ -345,7 +345,7 @@ static UniValue verifytxoutproof(const JSONRPCRequest& request)
     return res;
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -364,6 +364,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     }
 
     bool rbfOptIn = rbf.isTrue();
+
+    UniValue assets;
+    if (!assets_in.isNull()) {
+        assets = assets_in.get_obj();
+    }
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
@@ -420,10 +425,19 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         outputs = std::move(outputs_dict);
     }
     for (const std::string& name_ : outputs.getKeys()) {
+        // ELEMENTS:
+        // Asset defaults to policyAsset
+        CAsset asset(policyAsset);
+        if (!assets.isNull()) {
+            if (!find_value(assets, name_).isNull()) {
+                asset = CAsset(ParseHashO(assets, name_));
+            }
+        }
+
         if (name_ == "data") {
             std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
 
-            CTxOut out(0, CScript() << OP_RETURN << data);
+            CTxOut out(asset, 0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else if (name_ == "vdata") {
             // ELEMENTS: support multi-push OP_RETURN
@@ -435,7 +449,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             }
 
             //TODO(rebase) CA asset
-            CTxOut out(0, datascript);
+            CTxOut out(asset, 0, datascript);
             rawTx.vout.push_back(out);
         } else {
             CTxDestination destination = DecodeDestination(name_);
@@ -450,7 +464,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CScript scriptPubKey = GetScriptForDestination(destination);
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
-            CTxOut out(nAmount, scriptPubKey);
+            CTxOut out(asset, nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
         }
     }
@@ -499,6 +513,12 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
             "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
             "4. replaceable               (boolean, optional, default=false) Marks this transaction as BIP125 replaceable.\n"
             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible.\n"
+            "5. \"output_assets\"           (strings, optional, default=bitcoin) A json object of assets to addresses\n"
+            "   {\n"
+            "       \"address\": \"hex\" \n"
+            "       \"fee\": \"hex\" \n"
+            "       ...\n"
+            "   }\n"
             "\nResult:\n"
             "\"transaction\"              (string) hex string of the transaction\n"
 
@@ -519,7 +539,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
         }, true
     );
 
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3], request.params[4]);
 
     return EncodeHexTx(rawTx);
 }
@@ -899,9 +919,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         }
 
         const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).scriptPubKey : coin.out.scriptPubKey;
-        //TODO(rebase) CT
-        //const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin.out.nValue;
-        const CAmount& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin.out.nValue;
+        const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin.out.nValue;
 
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -910,11 +928,6 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         }
 
         UpdateTransaction(mtx, i, sigdata);
-
-        // amount must be specified for valid segwit signature
-        if (amount == MAX_MONEY && !inWitness.scriptWitness.IsNull()) {
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
-        }
 
         ScriptError serror = SCRIPT_ERR_OK;
         if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
@@ -1432,6 +1445,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     UniValue tx_univ(UniValue::VOBJ);
     TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
     result.pushKV("tx", tx_univ);
+    result.pushKV("fees", AmountMapToUniv(GetFeeMap(CTransaction(*psbtx.tx))));
 
     // Unknown data
     UniValue unknowns(UniValue::VOBJ);
@@ -1441,8 +1455,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     result.pushKV("unknown", unknowns);
 
     // inputs
-    CAmount total_in = 0;
-    bool have_all_utxos = true;
     UniValue inputs(UniValue::VARR);
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         const PSBTInput& input = psbtx.inputs[i];
@@ -1453,8 +1465,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
 
             UniValue out(UniValue::VOBJ);
 
-            out.pushKV("amount", ValueFromAmount(txout.nValue));
-            total_in += txout.nValue;
+            if (txout.nValue.IsExplicit()) {
+                out.pushKV("amount", ValueFromAmount(txout.nValue.GetAmount()));
+            } else {
+                out.pushKV("amountcommitment", txout.nValue.GetHex());
+            }
 
             UniValue o(UniValue::VOBJ);
             ScriptToUniv(txout.scriptPubKey, o, true);
@@ -1464,9 +1479,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
             in.pushKV("non_witness_utxo", non_wit);
-            total_in += input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n].nValue;
-        } else {
-            have_all_utxos = false;
         }
 
         // Partial sigs
@@ -1541,7 +1553,6 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     result.pushKV("inputs", inputs);
 
     // outputs
-    CAmount output_value = 0;
     UniValue outputs(UniValue::VARR);
     for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
         const PSBTOutput& output = psbtx.outputs[i];
@@ -1585,14 +1596,8 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         }
 
         outputs.push_back(out);
-
-        // Fee calculation
-        output_value += psbtx.tx->vout[i].nValue;
     }
     result.pushKV("outputs", outputs);
-    if (have_all_utxos) {
-        result.pushKV("fee", ValueFromAmount(total_in - output_value));
-    }
 
     return result;
 }

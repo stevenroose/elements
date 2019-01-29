@@ -54,18 +54,16 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const Sidechain::Bitcoin::CT
 
 bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, unsigned int nOut)
 {
-    //if (!txBTC.vout[nOut].nValue.IsExplicit()) {
-    //    return false;
-    //}
-    //if (!txBTC.vout[nOut].nAsset.IsExplicit()) {
-    //    return false;
-    //}
-    //if (txBTC.vout[nOut].nAsset.GetAsset() != Params().GetConsensus().parent_pegged_asset) {
-    //    return false;
-    //}
-    //amount = txBTC.vout[nOut].nValue.GetAmount();
-    //TODO(rebase) reenable above for CA/CT
-    amount = txBTC.vout[nOut].nValue;
+    if (!txBTC.vout[nOut].nValue.IsExplicit()) {
+        return false;
+    }
+    if (!txBTC.vout[nOut].nAsset.IsExplicit()) {
+        return false;
+    }
+    if (txBTC.vout[nOut].nAsset.GetAsset() != Params().GetConsensus().parent_pegged_asset) {
+        return false;
+    }
+    amount = txBTC.vout[nOut].nValue.GetAmount();
     return true;
 }
 
@@ -268,8 +266,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     if (stack[1].size() != 32) {
         return false;
     }
-    //TODO(rebase) CA
-    //CAsset asset(stack[1]);
+    CAsset asset(stack[1]);
 
     // Get genesis blockhash
     if (stack[2].size() != 32) {
@@ -330,11 +327,10 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    //TODO(rebase) CA
-    //// Check the asset type corresponds to a valid pegged asset (only one for now)
-    //if (asset != Params().GetConsensus().pegged_asset) {
-    //    return false;
-    //}
+    // Check the asset type corresponds to a valid pegged asset (only one for now)
+    if (asset != Params().GetConsensus().pegged_asset) {
+        return false;
+    }
 
     // Finally, validate peg-in via rpc call
     if (check_depth && gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
@@ -351,9 +347,7 @@ CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
     CAmount value;
     stream >> value;
 
-    //TODO(rebase) CA
-    //return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
-    return CTxOut(value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+    return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 bool MatchLiquidWatchman(const CScript& script)

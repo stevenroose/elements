@@ -712,8 +712,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
-        CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees, setPeginsSpent)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), setPeginsSpent)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -726,6 +725,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+
+        if (!HasValidFee(tx))
+            return state.DoS(0, false, REJECT_INVALID, "bad-fees");
+        CAmount nFees = GetFeeMap(tx)[policyAsset];
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -1928,7 +1931,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const CScript& mandatory_coinbase_destination = chainparams.GetConsensus().mandatory_coinbase_destination;
     if (mandatory_coinbase_destination != CScript()) {
         for (auto& txout : block.vtx[0]->vout) {
-            if (txout.scriptPubKey != mandatory_coinbase_destination && txout.nValue != 0) {
+            bool mustPay = !txout.nValue.IsExplicit() || txout.nValue.GetAmount() != 0;
+            if (mustPay && txout.scriptPubKey != mandatory_coinbase_destination) {
                 return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
                                  REJECT_INVALID, "bad-coinbase-txos");
             }
@@ -2071,7 +2075,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
     std::vector<int> prevheights;
-    CAmount nFees = 0;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
@@ -2081,6 +2084,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // ELEMENTS:
     // Used when ConnectBlock() results are unneeded for mempool ejection
     std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
+    CAmountMap mapFees;
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2090,15 +2094,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!tx.IsCoinBase())
         {
-            CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee,
+            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight,
                         setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
-            }
-            nFees += txfee;
-            if (!MoneyRange(nFees)) {
-                return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
-                                 REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
             }
 
             // Check that transaction is BIP68 final
@@ -2144,16 +2142,27 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+
+        if (!HasValidFee(tx))
+            return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
+        mapFees += GetFeeMap(tx);
+        if (!MoneyRange(mapFees))
+            return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-    if (block.vtx[0]->GetValueOut() > blockReward)
-        return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               block.vtx[0]->GetValueOut(), blockReward),
-                               REJECT_INVALID, "bad-cb-amount");
+    CAmountMap mapBounty;
+    mapBounty[Params().GetConsensus().pegged_asset] = GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+
+    CAmountMap blockReward = mapFees + mapBounty;
+    if (!MoneyRange(blockReward))
+        return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
+    if (!VerifyCoinbaseAmount(*(block.vtx[0]), blockReward)) {
+        return state.DoS(100, error("ConnectBlock(): coinbase pays too much (limit=%d)",
+                blockReward[policyAsset]), REJECT_INVALID, "bad-cb-amount");
+    }
+
 
     if (!control.Wait())
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
@@ -3342,6 +3351,7 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             CHash256().Write(witnessroot.begin(), 32).Write(ret.data(), 32).Finalize(witnessroot.begin());
             CTxOut out;
             out.nValue = 0;
+            out.nAsset = policyAsset;
             out.scriptPubKey.resize(38);
             out.scriptPubKey[0] = OP_RETURN;
             out.scriptPubKey[1] = 0x24;

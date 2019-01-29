@@ -4,6 +4,7 @@
 
 #include <test/test_bitcoin.h>
 
+#include <asset.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/params.h>
@@ -65,6 +66,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // TODO: fix the code to support SegWit blocks.
     gArgs.ForceSetArg("-vbparams", strprintf("segwit:0:%d", (int64_t)Consensus::BIP9Deployment::NO_TIMEOUT));
     SelectParams(chainName);
+
+    // ELEMENTS:
+    // Set policy asset for correct fee output generation
+    policyAsset = CAsset(uint256S(Params().GetConsensus().pegged_asset.GetHex()));
+
     noui_connect();
 }
 

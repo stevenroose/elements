@@ -189,15 +189,19 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
-    CAmount nValueOut = 0;
+    CAmount nValueOutExplicit = 0;
     for (const auto& txout : tx.vout)
     {
-        if (txout.nValue < 0)
+        if (!txout.nValue.IsValid())
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
+        if (!txout.nValue.IsExplicit())
+            continue;
+        if (txout.nValue.GetAmount() < 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
+        if (txout.nValue.GetAmount() > MAX_MONEY)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
+        nValueOutExplicit += txout.nValue.GetAmount();
+        if (!MoneyRange(nValueOutExplicit))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
@@ -227,7 +231,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -235,7 +239,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
-    CAmount nValueIn = 0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         if (tx.vin[i].m_is_pegin) {
@@ -255,10 +258,10 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
             // Tally the input amount.
             const CTxOut out = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
-            if (!MoneyRange(out.nValue)) {
+            assert(out.nValue.IsExplicit());
+            if (!MoneyRange(out.nValue.GetAmount())) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-pegin-inputvalue-outofrange");
             }
-            nValueIn += out.nValue;
         } else {
             const Coin& coin = inputs.AccessCoin(prevout);
             assert(!coin.IsSpent());
@@ -269,29 +272,19 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                     REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
                     strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
             }
-
-            // Check for negative or overflow input values
-            nValueIn += coin.out.nValue;
-            if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-            }
         }
     }
 
-    //TODO(rebase) you need to replace these two blocks with the `VerifyAmounts` and `HasValidFee` methods
-    const CAmount value_out = tx.GetValueOut();
-    if (nValueIn < value_out) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-            strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
-    }
-
     // Tally transaction fees
-    const CAmount txfee_aux = nValueIn - value_out;
-    if (!MoneyRange(txfee_aux)) {
+    if (!HasValidFee(tx)) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     }
 
-    txfee = txfee_aux;
+    // Verify that amounts add up.
+    if (fScriptChecks && !VerifyAmounts(inputs, tx, pvChecks, cacheStore)) {
+        return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false, "value in != value out");
+    }
+
     return true;
 }
 }// namespace Consensus
