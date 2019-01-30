@@ -227,7 +227,6 @@ libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
   addrdb.cpp \
   addrman.cpp \
-  asset.cpp \
   bloom.cpp \
   blockencodings.cpp \
   block_proof.cpp \
@@ -240,7 +239,6 @@ libbitcoin_server_a_SOURCES = \
   index/base.cpp \
   index/txindex.cpp \
   init.cpp \
-  issuance.cpp \
   dbwrapper.cpp \
   mainchainrpc.cpp \
   merkleblock.cpp \
@@ -360,6 +358,7 @@ libbitcoin_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
+  asset.cpp \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
@@ -412,6 +411,7 @@ libbitcoin_common_a_SOURCES = \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
+  issuance.cpp \
   key.cpp \
   key_io.cpp \
   keystore.cpp \

@@ -15,10 +15,11 @@
 #include <net_processing.h>
 #include <pow.h>
 #include <ui_interface.h>
+#include <policy/policy.h>
+#include <script/sigcache.h>
 #include <streams.h>
 #include <rpc/server.h>
 #include <rpc/register.h>
-#include <script/sigcache.h>
 
 void CConnmanTest::AddNode(CNode& node)
 {

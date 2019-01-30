@@ -1,7 +1,8 @@
-#include "issuance.h"
 
-#include "primitives/transaction.h"
-#include "amount.h"
+#include <issuance.h>
+
+#include <primitives/transaction.h>
+#include <amount.h>
 
 void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint256& contracthash)
 {

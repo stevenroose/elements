@@ -113,7 +113,7 @@ class CConfidentialValue : public CConfidentialCommitment<9, 8, 9>
 {
 public:
     CConfidentialValue() { SetNull(); }
-    explicit CConfidentialValue(CAmount nAmount) { SetToAmount(nAmount); }
+    CConfidentialValue(CAmount nAmount) { SetToAmount(nAmount); }
 
     /* An explicit value is called an amount. The first byte indicates it is
      * an explicit value, and the remaining 8 bytes is the value serialized as
