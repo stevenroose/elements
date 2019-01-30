@@ -128,6 +128,7 @@ BITCOIN_CORE_H = \
   interfaces/handler.h \
   interfaces/node.h \
   interfaces/wallet.h \
+  issuance.h \
   key.h \
   key_io.h \
   keystore.h \
@@ -239,6 +240,7 @@ libbitcoin_server_a_SOURCES = \
   index/base.cpp \
   index/txindex.cpp \
   init.cpp \
+  issuance.cpp \
   dbwrapper.cpp \
   mainchainrpc.cpp \
   merkleblock.cpp \

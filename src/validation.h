@@ -366,7 +366,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp = null
  * Closure representing one script verification
  * Note that this stores references to the spending transaction
  */
-class CScriptCheck
+class CScriptCheck : public CCheck
 {
 private:
     CTxOut m_tx_out;

@@ -562,6 +562,7 @@ class CCustomParams : public CRegTestParams {
         CalculateAsset(consensus.pegged_asset, entropy);
 
         consensus.parent_pegged_asset.SetHex(args.GetArg("-con_parent_pegged_asset", "0x00"));
+        initial_reissuance_tokens = args.GetArg("-initialreissuancetokens", 0);
 
         // END ELEMENTS fields
         //
@@ -575,8 +576,8 @@ class CCustomParams : public CRegTestParams {
             // Intended compatibility with Liquid v1 and elements-0.14.1
             std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
             genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
-            if (initialFreeCoins != 0) {
-                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
+            if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
+                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
         } else {
             throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));

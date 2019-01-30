@@ -76,7 +76,7 @@ bool CSurjectionCheck::operator()() {
 }
 
 // Destroys the check in the case of no queue, or passes its ownership to the queue.
-static inline ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check) {
+ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check) {
     if (queue != NULL) {
         queue->push_back(check);
         return SCRIPT_ERR_OK;
@@ -146,7 +146,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& value_commit, se
     return true;
 }
 
-bool VerifyAmounts(const std::vector<CTxOut&>& inputs, const CTransaction& tx, std::vector<CCheck*>* checks, const bool store_result) {
+bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, std::vector<CCheck*>* checks, const bool store_result) {
     assert(!tx.IsCoinBase());
 
     std::vector<secp256k1_pedersen_commitment> vData;
@@ -170,8 +170,7 @@ bool VerifyAmounts(const std::vector<CTxOut&>& inputs, const CTransaction& tx, s
     target_generators.reserve(tx.vin.size() + GetNumIssuances(tx));
 
     // Tally up value commitments, check balance
-    for (size_t i = 0; i < tx.vin.size(); ++i)
-    {
+    for (size_t i = 0; i < tx.vin.size(); ++i) {
         const CConfidentialValue& val = inputs[i].nValue;
         const CConfidentialAsset& asset = inputs[i].nAsset;
 
@@ -269,7 +268,7 @@ bool VerifyAmounts(const std::vector<CTxOut&>& inputs, const CTransaction& tx, s
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, checks, store_result)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.witness.vtxinwit[i].vchIssuanceAmountRangeproof, checks, store_result)) {
                 return false;
             }
             target_generators.push_back(gen);
@@ -296,7 +295,7 @@ bool VerifyAmounts(const std::vector<CTxOut&>& inputs, const CTransaction& tx, s
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, checks, store_result)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.witness.vtxinwit[i].vchInflationKeysRangeproof, checks, store_result)) {
                 return false;
             }
             target_generators.push_back(gen);

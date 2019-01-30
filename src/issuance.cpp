@@ -49,7 +49,7 @@ void CalculateReissuanceToken(CAsset& reissuanceToken, const uint256& entropy, b
 /** Add an issuance transaction to the genesis block. Typically used to pre-issue
  * the policyAsset of a blockchain. The genesis block is not actually validated,
  * so this transaction simply has to match issuance structure. */
-void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const int64_t asset_values, const CScript& issuance_destination) {
+void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination) {
     uint256 entropy;
     GenerateAssetEntropy(entropy, prevout, contract);
 
@@ -66,14 +66,14 @@ void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, cons
     txNew.vin.resize(1);
     txNew.vin[0].prevout = prevout;
     txNew.vin[0].assetIssuance.assetEntropy = contract;
-    txNew.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
-    txNew.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
+    txNew.vin[0].assetIssuance.nAmount = CConfidentialValue(asset_values * asset_outputs);
+    txNew.vin[0].assetIssuance.nInflationKeys = CConfidentialValue(reissuance_values * reissuance_outputs);
 
     for (unsigned int i = 0; i < asset_outputs; i++) {
-        txNew.vout.push_back(CTxOut(asset, asset_values, issuance_destination));
+        txNew.vout.push_back(CTxOut(asset, CConfidentialValue(asset_values), issuance_destination));
     }
     for (unsigned int i = 0; i < reissuance_outputs; i++) {
-        txNew.vout.push_back(CTxOut(reissuance, reissuance_values, issuance_destination));
+        txNew.vout.push_back(CTxOut(reissuance, CConfidentialValue(reissuance_values), issuance_destination));
     }
 
     genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
