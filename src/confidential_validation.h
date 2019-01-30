@@ -93,4 +93,39 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
 bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 
+// 
+// verification caches cfr script/sigcache.h
+
+class CachingRangeProofChecker
+{
+private:
+    bool store;
+public:
+    CachingRangeProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* ctx) const;
+
+};
+
+class CachingSurjectionProofChecker
+{
+private:
+    bool store;
+public:
+    CachingSurjectionProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx, const uint256& wtxid) const;
+
+};
+
+void InitRangeproofCache();
+void InitSurjectionproofCache();
+
+////
+//
+
 #endif // BITCOIN_CONFIDENTIAL_VALIDATION_H

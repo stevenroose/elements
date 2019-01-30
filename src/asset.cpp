@@ -142,12 +142,8 @@ bool hasNonPostiveValue(const CAmountMap& amount)
 
 UniValue AmountMapToUniv(const CAmountMap& mapValue) {
     UniValue ret(UniValue::VOBJ);
-    for(std::map<CAsset, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it) {
-        if (it->second.IsExplicit()) {
-            ret.pushKV(it->first.GetHex(), it->second.GetAmount());
-        } else {           
-            ret.pushKV(it->first.GetHex(), it->second.GetHex());
-        }
+    for(std::map<CAsset, CAmount>::const_iterator it = mapValue.begin(); it != mapValue.end(); ++it) {
+        ret.pushKV(it->first.GetHex(), it->second);
     }
     return ret;
 }

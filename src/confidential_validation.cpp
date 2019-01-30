@@ -38,10 +38,11 @@ bool HasValidFee(const CTransaction& tx) {
 
 CAmountMap GetFeeMap(const CTransaction& tx) {
     CAmountMap fee;
-    for (unsigned int i = 0; i < vout.size(); i++)
-        if (vout[i].IsFee()) {
-            fee[vout[i].nAsset.GetAsset()] += vout[i].nValue.GetAmount();
+    for (const CTxOut& txout : tx.vout) {
+        if (txout.IsFee()) {
+            fee[txout.nAsset.GetAsset()] += txout.nValue.GetAmount();
         }
+    }
     return fee;
 }
 
@@ -430,4 +431,97 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
         remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
     return MoneyRange(remaining);
+}
+
+bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+{
+    uint256 entry;
+    rangeProofCache.ComputeEntry(entry, vchRangeProof, vchValueCommitment);
+
+    if (rangeProofCache.Get(entry, !store)) {
+        return true;
+    }
+
+    if (vchRangeProof.size() == 0) {
+        return false;
+    }
+
+    uint64_t min_value, max_value;
+    secp256k1_pedersen_commitment commit;
+    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &vchValueCommitment[0]) != 1)
+            return false;
+
+    secp256k1_generator tag;
+    if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &tag, &vchAssetCommitment[0]) != 1)
+        return false;
+
+    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &tag)) {
+        return false;
+    }
+
+    // An rangeproof is not valid if the output is spendable but the minimum number
+    // is 0. This is to prevent people passing 0-value tokens around, or conjuring
+    // reissuance tokens from nothing then attempting to reissue an asset.
+    // ie reissuance doesn't require revealing value of reissuance output
+    // Issuances proofs are always "unspendable" as they commit to an empty script.
+    if (min_value == 0 && !scriptPubKey.IsUnspendable()) {
+        return false;
+    }
+
+    if (store) {
+        rangeProofCache.Set(entry);
+    }
+
+    return true;
+}
+
+bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts, const uint256& wtxid) const
+{
+
+    // Serialize proof
+    std::vector<unsigned char> vchproof;
+    size_t proof_len = 0;
+    vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
+    secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
+
+    // wtxid commits to all data including surj targets
+    // we need to specify the proof and output asset point to be unique
+    uint256 entry;
+    surjectionProofCache.ComputeEntry(entry, wtxid, vchproof, std::vector<unsigned char>(std::begin(gen.data), std::end(gen.data)));
+
+    if (surjectionProofCache.Get(entry, !store)) {
+        return true;
+    }
+
+    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
+        return false;
+    }
+
+    if (store) {
+        surjectionProofCache.Set(entry);
+    }
+
+    return true;
+}
+
+// To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
+void InitRangeproofCache()
+{
+    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
+    // setup_bytes creates the minimum possible cache (2 elements).
+    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
+    size_t nElems = rangeProofCache.setup_bytes(nMaxCacheSize);
+    LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu elements\n",
+            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
+}
+
+// To be called once in AppInit2/TestingSetup to initialize the surjectionrproof cache
+void InitSurjectionproofCache()
+{
+    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
+    // setup_bytes creates the minimum possible cache (2 elements).
+    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
+    size_t nElems = surjectionProofCache.setup_bytes(nMaxCacheSize);
+    LogPrintf("Using %zu MiB out of %zu requested for surjectionproof cache, able to store %zu elements\n",
+            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }

@@ -122,11 +122,11 @@ CAmountMap CTransaction::GetValueOutMap() const {
 
     CAmountMap values;
     for (const auto& tx_out : vout) {
-        if (tx_out.nValue.IsExplicit()) {
+        if (tx_out.nValue.IsExplicit() && tx_out.nAsset.IsExplicit()) {
             CAmountMap m;
-            m[tx_out.nAsset] = tx_out.nValue.GetAmount();
+            m[tx_out.nAsset.GetAsset()] = tx_out.nValue.GetAmount();
             values += m;
-            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset]))
+            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()]))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
         }
     }

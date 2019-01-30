@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <asset.h>
 #include <chain.h>
 #include <coins.h>
 #include <compat/byteswap.h>
@@ -27,6 +28,7 @@
 #include <uint256.h>
 #include <utilstrencodings.h>
 #include <validation.h>
+#include <confidential_validation.h>
 #include <validationinterface.h>
 #ifdef ENABLE_WALLET
 #include <wallet/rpcwallet.h>

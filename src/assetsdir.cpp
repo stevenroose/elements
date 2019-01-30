@@ -91,3 +91,12 @@ CAsset GetAssetFromString(const std::string& strasset) {
     }
     return asset;
 }
+
+// GLOBAL:
+CAssetsDir _gAssetsDir;
+const CAssetsDir& gAssetsDir = _gAssetsDir;
+
+void InitGlobalAssetDir(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name)
+{
+    _gAssetsDir.InitFromStrings(assetsToInit, pegged_asset_name);
+}

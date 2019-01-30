@@ -50,4 +50,11 @@ public:
  */
 CAsset GetAssetFromString(const std::string& strasset);
 
+// GLOBAL:
+class CAssetsDir;
+
+extern const CAssetsDir& gAssetsDir;
+
+void InitGlobalAssetDir(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name);
+
 #endif // BITCOIN_ASSETSDIR_H

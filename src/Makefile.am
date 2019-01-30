@@ -92,6 +92,8 @@ endif
 BITCOIN_CORE_H = \
   addrdb.h \
   addrman.h \
+  asset.h \
+  assetsdir.h \
   base58.h \
   bech32.h \
   bloom.h \
@@ -110,6 +112,7 @@ BITCOIN_CORE_H = \
   compat/endian.h \
   compat/sanity.h \
   compressor.h \
+  confidential_validation.h \
   consensus/consensus.h \
   consensus/tx_verify.h \
   core_io.h \
@@ -223,11 +226,13 @@ libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
   addrdb.cpp \
   addrman.cpp \
+  asset.cpp \
   bloom.cpp \
   blockencodings.cpp \
   block_proof.cpp \
   chain.cpp \
   checkpoints.cpp \
+  confidential_validation.cpp \
   consensus/tx_verify.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -283,6 +288,7 @@ endif
 libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
+  assetsdir.cpp \
   interfaces/wallet.cpp \
   wallet/blind.cpp \
   wallet/coincontrol.cpp \
@@ -361,6 +367,8 @@ libbitcoin_consensus_a_SOURCES = \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
+  primitives/confidential.cpp \
+  primitives/confidential.h \
   primitives/txwitness.cpp \
   primitives/txwitness.h \
   primitives/transaction.cpp \
