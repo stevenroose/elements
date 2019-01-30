@@ -347,7 +347,7 @@ CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
     CAmount value;
     stream >> value;
 
-    return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+    return CTxOut(CAsset(pegin_witness.stack[1]), CConfidentialValue(value), CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 bool MatchLiquidWatchman(const CScript& script)

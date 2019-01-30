@@ -1,6 +1,8 @@
 
 #include <primitives/confidential.h>
 
+#include <tinyformat.h>
+
 void CConfidentialAsset::SetToAsset(const CAsset& asset)
 {
     vchCommitment.clear();

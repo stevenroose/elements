@@ -112,7 +112,7 @@ public:
             if (type == 0) {
                 uint64_t nVal = 0;
                 READWRITE(VARINT(nVal));
-                txout.nValue = DecompressAmount(nVal);
+                txout.nValue = CConfidentialValue(DecompressAmount(nVal));
             } else {
                 READWRITE(txout.nValue);
             }

@@ -439,7 +439,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         if (name_ == "data") {
             std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
 
-            CTxOut out(asset, 0, CScript() << OP_RETURN << data);
+            CTxOut out(asset, CConfidentialValue(0), CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else if (name_ == "vdata") {
             // ELEMENTS: support multi-push OP_RETURN
@@ -451,7 +451,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             }
 
             //TODO(rebase) CA asset
-            CTxOut out(asset, 0, datascript);
+            CTxOut out(asset, CConfidentialValue(0), datascript);
             rawTx.vout.push_back(out);
         } else {
             CTxDestination destination = DecodeDestination(name_);
@@ -466,7 +466,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CScript scriptPubKey = GetScriptForDestination(destination);
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
-            CTxOut out(asset, nAmount, scriptPubKey);
+            CTxOut out(asset, CConfidentialValue(nAmount), scriptPubKey);
             rawTx.vout.push_back(out);
         }
     }
@@ -860,9 +860,9 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                 }
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
-                newcoin.out.nValue = MAX_MONEY;
+                newcoin.out.nValue = CConfidentialValue(MAX_MONEY);
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = AmountFromValue(find_value(prevOut, "amount"));
+                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
                 }
                 newcoin.nHeight = 1;
                 view.AddCoin(out, std::move(newcoin), true);

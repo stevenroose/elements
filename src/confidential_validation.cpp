@@ -1,7 +1,9 @@
 
 #include <confidential_validation.h>
+#include <issuance.h>
+#include <pegins.h>
 #include <secp256k1.h>
-
+#include <script/sigcache.h>
 
 namespace {
 static secp256k1_context *secp256k1_ctx_verify_amounts;
@@ -46,8 +48,7 @@ CAmountMap GetFeeMap(const CTransaction& tx) {
     return fee;
 }
 
-bool CRangeCheck::operator()()
-{
+bool CRangeCheck::operator()() {
     if (val->IsExplicit()) {
         return true;
     }
@@ -60,8 +61,7 @@ bool CRangeCheck::operator()()
     return true;
 };
 
-bool CBalanceCheck::operator()()
-{
+bool CBalanceCheck::operator()() {
     if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         fAmountError = true;
         error = SCRIPT_ERR_PEDERSEN_TALLY;
@@ -71,13 +71,23 @@ bool CBalanceCheck::operator()()
     return true;
 }
 
-bool CSurjectionCheck::operator()()
-{
+bool CSurjectionCheck::operator()() {
     return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts, wtxid);
 }
 
-size_t GetNumIssuances(const CTransaction& tx)
-{
+// Destroys the check in the case of no queue, or passes its ownership to the queue.
+static inline ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check) {
+    if (queue != NULL) {
+        queue->push_back(check);
+        return SCRIPT_ERR_OK;
+    }
+    bool success = (*check)();
+    ScriptError err = check->GetScriptError();
+    delete check;
+    return success ? SCRIPT_ERR_OK : err;
+}
+
+size_t GetNumIssuances(const CTransaction& tx) {
     unsigned int numIssuances = 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         if (!tx.vin[i].assetIssuance.IsNull()) {
@@ -95,8 +105,7 @@ size_t GetNumIssuances(const CTransaction& tx)
 // Helper function for VerifyAmount(), not exported
 static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& commit, secp256k1_generator& gen,
                     const CAsset& asset, const CConfidentialValue& value, const std::vector<unsigned char>& vchRangeproof,
-                    std::vector<CCheck*>* pvChecks, const bool cacheStore)
-{
+                    std::vector<CCheck*>* pvChecks, const bool cacheStore) {
     // This is used to add in the explicit values
     unsigned char explBlinds[32];
     memset(explBlinds, 0, sizeof(explBlinds));
@@ -140,8 +149,7 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& commit, secp256k
     return true;
 }
 
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore)
-{
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore) {
     assert(!tx.IsCoinBase());
 
     std::vector<secp256k1_pedersen_commitment> vData;
@@ -156,7 +164,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     memset(explBlinds, 0, sizeof(explBlinds));
     int ret;
 
-    uint256 wtxid(tx.GetHashWithWitness());
+    uint256 wtxid(tx.GetWitnessHash());
 
     // This list is used to verify surjection proofs.
     // Proofs must be constructed with the list being in
@@ -169,7 +177,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     for (size_t i = 0; i < tx.vin.size(); ++i)
     {
         // Assumes IsValidPeginWitness has been called successfully
-        const CTxOut out = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) : cache.GetOutputFor(tx.vin[i]);
+        const CTxOut out = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness) : cache.AccessCoin(tx.vin[i].prevout).out;
         const CConfidentialValue& val = out.nValue;
         const CConfidentialAsset& asset = out.nAsset;
 
@@ -264,10 +272,10 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
         }
         if (!issuance.nAmount.IsNull()) {
-            if (i >= tx.wit.vtxinwit.size()) {
+            if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, pvChecks, cacheStore)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.witness.vtxinwit[i].vchIssuanceAmountRangeproof, pvChecks, cacheStore)) {
                 return false;
             }
             targetGenerators.push_back(gen);
@@ -291,10 +299,10 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 return false;
             }
 
-            if (i >= tx.wit.vtxinwit.size()) {
+            if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
-            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, pvChecks, cacheStore)) {
+            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.witness.vtxinwit[i].vchInflationKeysRangeproof, pvChecks, cacheStore)) {
                 return false;
             }
             targetGenerators.push_back(gen);
@@ -367,7 +375,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
         std::vector<unsigned char> vchAssetCommitment = asset.vchCommitment;
-        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
         if (val.IsExplicit())
         {
             if (ptxoutwit && !ptxoutwit->vchRangeproof.empty())
@@ -391,7 +399,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
         // No need for surjection proof
         if (asset.IsExplicit()) {
             if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
@@ -416,8 +424,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     return true;
 }
 
-bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
-{
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees) {
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
@@ -431,97 +438,4 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
         remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
     return MoneyRange(remaining);
-}
-
-bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
-{
-    uint256 entry;
-    rangeProofCache.ComputeEntry(entry, vchRangeProof, vchValueCommitment);
-
-    if (rangeProofCache.Get(entry, !store)) {
-        return true;
-    }
-
-    if (vchRangeProof.size() == 0) {
-        return false;
-    }
-
-    uint64_t min_value, max_value;
-    secp256k1_pedersen_commitment commit;
-    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &vchValueCommitment[0]) != 1)
-            return false;
-
-    secp256k1_generator tag;
-    if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &tag, &vchAssetCommitment[0]) != 1)
-        return false;
-
-    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &tag)) {
-        return false;
-    }
-
-    // An rangeproof is not valid if the output is spendable but the minimum number
-    // is 0. This is to prevent people passing 0-value tokens around, or conjuring
-    // reissuance tokens from nothing then attempting to reissue an asset.
-    // ie reissuance doesn't require revealing value of reissuance output
-    // Issuances proofs are always "unspendable" as they commit to an empty script.
-    if (min_value == 0 && !scriptPubKey.IsUnspendable()) {
-        return false;
-    }
-
-    if (store) {
-        rangeProofCache.Set(entry);
-    }
-
-    return true;
-}
-
-bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts, const uint256& wtxid) const
-{
-
-    // Serialize proof
-    std::vector<unsigned char> vchproof;
-    size_t proof_len = 0;
-    vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
-    secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
-
-    // wtxid commits to all data including surj targets
-    // we need to specify the proof and output asset point to be unique
-    uint256 entry;
-    surjectionProofCache.ComputeEntry(entry, wtxid, vchproof, std::vector<unsigned char>(std::begin(gen.data), std::end(gen.data)));
-
-    if (surjectionProofCache.Get(entry, !store)) {
-        return true;
-    }
-
-    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
-        return false;
-    }
-
-    if (store) {
-        surjectionProofCache.Set(entry);
-    }
-
-    return true;
-}
-
-// To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
-void InitRangeproofCache()
-{
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = rangeProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
-}
-
-// To be called once in AppInit2/TestingSetup to initialize the surjectionrproof cache
-void InitSurjectionproofCache()
-{
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = surjectionProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu requested for surjectionproof cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }

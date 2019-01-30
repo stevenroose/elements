@@ -125,8 +125,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Pad block weight to account for OP_RETURN commitments with two compressed pubkeys
     for (const auto& commitment : commitments) {
         CConfidentialAsset cAsset;
-        CConfidentialValue cValue;
-        cValue.SetToAmount(0);
+        CConfidentialValue cValue(0);
         CTxOut output(cAsset, cValue, commitment);
         nBlockWeight += ::GetSerializeSize(output, SER_NETWORK, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
     }
@@ -190,15 +189,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue.SetToAmount(nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()));
     coinbaseTx.vout[0].nAsset = policyAsset;
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     // ELEMENTS: PAK
     // Add PAK transition commitments
     for (unsigned int i = 0; i < commitments.size(); i++) {
         CConfidentialAsset cAsset;
-        CConfidentialValue cValue;
-        cValue.SetToAmount(0);
+        CConfidentialValue cValue(0);
         coinbaseTx.vout.push_back(CTxOut(cAsset, cValue, commitments[i]));
     }
     // END PAK
