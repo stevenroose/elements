@@ -1753,6 +1753,12 @@ UniValue createpsbt(const JSONRPCRequest& request)
                             "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
                             "4. replaceable               (boolean, optional, default=false) Marks this transaction as BIP125 replaceable.\n"
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible.\n"
+                            "5. \"output_assets\"           (strings, optional, default=bitcoin) A json object of assets to addresses\n"
+                            "   {\n"
+                            "       \"address\": \"hex\" \n"
+                            "       \"fee\": \"hex\" \n"
+                            "       ...\n"
+                            "   }\n"
                             "\nResult:\n"
                             "  \"psbt\"        (string)  The resulting raw transaction (base64-encoded string)\n"
                             "\nExamples:\n"
@@ -1768,7 +1774,7 @@ UniValue createpsbt(const JSONRPCRequest& request)
         }, true
     );
 
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3], request.params[4]);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx;

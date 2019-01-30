@@ -9,8 +9,8 @@
 #include <script/interpreter.h>
 
 #include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 #include <secp256k1_surjectionproof.h>
-#include <secp256k1.h>
 #include <vector>
 
 // DoS prevention: limit cache size to 32MB (over 1000000 entries on 64-bit

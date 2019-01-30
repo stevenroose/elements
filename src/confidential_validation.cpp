@@ -2,7 +2,6 @@
 #include <confidential_validation.h>
 #include <issuance.h>
 #include <pegins.h>
-#include <secp256k1.h>
 #include <script/sigcache.h>
 
 namespace {
