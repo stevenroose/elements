@@ -12,6 +12,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
+#include <secp256k1_ecdh.h>
 
 static secp256k1_context* secp256k1_context_sign = nullptr;
 
@@ -207,7 +208,7 @@ uint256 CKey::ECDH(const CPubKey& pubkey) const {
     uint256 result;
     secp256k1_pubkey pkey;
     assert(secp256k1_ec_pubkey_parse(secp256k1_context_sign, &pkey, pubkey.begin(), pubkey.size()));
-    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin()));
+    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), NULL, NULL));
     return result;
 }
 

@@ -161,7 +161,7 @@ uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey)
     CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
     assert(ephemeral_pubkey.size() == CConfidentialNonce::nCommittedSize);
     out.nNonce.vchCommitment.resize(ephemeral_pubkey.size());
-    memcpy(&out.nonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
+    memcpy(&out.nNonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
     // Generate nonce
     uint256 nonce = ephemeral_key.ECDH(output_pubkey);
     CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
