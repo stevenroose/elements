@@ -606,6 +606,9 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         strasset = request.params[8].get_str();
     }
     CAsset asset = GetAssetFromString(strasset);
+    if (asset.IsNull()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
+    }
 
     bool fIgnoreBlindFail = true;
     if (request.params.size() > 9) {
@@ -1306,6 +1309,9 @@ static UniValue sendmany(const JSONRPCRequest& request)
             strasset = assets[name_].get_str();
         }
         CAsset asset = GetAssetFromString(strasset);
+        if (asset.IsNull()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
+        }
 
         CTxDestination dest = DecodeDestination(name_);
         if (!IsValidDestination(dest)) {
