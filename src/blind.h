@@ -48,7 +48,7 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
 int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& out_val_blind_factors, std::vector<uint256 >& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators = nullptr);
 
 /*
- * Rewind the outputs to unblinded, and push placeholders for blinding info
+ * Extract pubkeys from nonce commitment placeholders, fill out vector of blank output blinding data
  */
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys);
 
