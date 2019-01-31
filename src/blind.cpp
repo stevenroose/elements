@@ -560,3 +560,20 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
     return num_blinded;
 }
+
+void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        // Any place-holder blinding pubkeys are extracted
+        if (tx.vout[nOut].nValue.IsExplicit()) {
+            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+            if (!pubkey.IsFullyValid()) {
+                output_pubkeys.push_back(CPubKey());
+            }
+            output_pubkeys.push_back(pubkey);
+        }
+        // No way to unblind anything, just fill out
+        output_value_blinds.push_back(uint256());
+        output_asset_blinds.push_back(uint256());
+    }
+        // We cannot unwind issuance inputs because there is no nonce placeholder for pubkeys
+}
