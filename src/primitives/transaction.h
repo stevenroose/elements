@@ -245,6 +245,7 @@ public:
     CTxOut()
     {
         SetNull();
+        //nValue.SetToAmount(0);
     }
 
     CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
@@ -258,7 +259,18 @@ public:
             READWRITE(nValue);
             READWRITE(nNonce);
         } else {
-            READWRITE(nValue.GetAmount());
+            CAmount value;
+            if (!ser_action.ForRead()) {
+                if (nValue.IsNull()) {
+                    value = 0; // CTxOut() should be treated as zero value
+                } else {
+                    value = nValue.GetAmount();
+                }
+            }
+            READWRITE(value);
+            if (ser_action.ForRead()) {
+                nValue.SetToAmount(value);
+            }
         }
         READWRITE(scriptPubKey);
     }
