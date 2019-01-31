@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <wallet/blind.h>
+#include <blind.h>
 
 #include <hash.h>
 #include <primitives/transaction.h>
@@ -160,7 +160,7 @@ uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey)
     ephemeral_key.MakeNewKey(true);
     CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
     assert(ephemeral_pubkey.size() == CConfidentialNonce::nCommittedSize);
-    out.nonce.vchCommitment.resize(ephemeral_pubkey.size());
+    out.nNonce.vchCommitment.resize(ephemeral_pubkey.size());
     memcpy(&out.nonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
     // Generate nonce
     uint256 nonce = ephemeral_key.ECDH(output_pubkey);

@@ -96,6 +96,7 @@ BITCOIN_CORE_H = \
   assetsdir.h \
   base58.h \
   bech32.h \
+  blind.h \
   bloom.h \
   blockencodings.h \
   block_proof.h \
@@ -196,7 +197,6 @@ BITCOIN_CORE_H = \
   versionbits.h \
   versionbitsinfo.h \
   walletinitinterface.h \
-  wallet/blind.h \
   wallet/coincontrol.h \
   wallet/crypter.h \
   wallet/db.h \
@@ -290,7 +290,6 @@ libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   assetsdir.cpp \
   interfaces/wallet.cpp \
-  wallet/blind.cpp \
   wallet/coincontrol.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
@@ -406,6 +405,7 @@ libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
+  blind.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
