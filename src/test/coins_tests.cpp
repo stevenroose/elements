@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
 
             if (InsecureRandRange(5) == 0 || coin.IsSpent()) {
                 Coin newcoin;
-                newcoin.out.nValue = InsecureRand32();
+                newcoin.out.nValue.SetToAmount(InsecureRand32());
                 newcoin.nHeight = 1;
                 if (InsecureRandRange(16) == 0 && coin.IsSpent()) {
                     newcoin.out.scriptPubKey.assign(1 + InsecureRandBits(6), OP_RETURN);
@@ -301,7 +301,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             CMutableTransaction tx;
             tx.vin.resize(1);
             tx.vout.resize(1);
-            tx.vout[0].nValue = i; //Keep txs unique unless intended to duplicate
+            tx.vout[0].nValue.SetToAmount(i); //Keep txs unique unless intended to duplicate
             tx.vout[0].scriptPubKey.assign(InsecureRand32() & 0x3F, 0); // Random sizes so we can test memory usage accounting
             unsigned int height = InsecureRand32();
             Coin old_coin;
@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     ss1 >> cc1;
     BOOST_CHECK_EQUAL(cc1.fCoinBase, false);
     BOOST_CHECK_EQUAL(cc1.nHeight, 203998U);
-    BOOST_CHECK_EQUAL(cc1.out.nValue, CAmount{60000000000});
+    BOOST_CHECK_EQUAL(cc1.out.nValue.GetAmount(), CAmount{60000000000});
     BOOST_CHECK_EQUAL(HexStr(cc1.out.scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
 
     // Good example
@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     ss2 >> cc2;
     BOOST_CHECK_EQUAL(cc2.fCoinBase, true);
     BOOST_CHECK_EQUAL(cc2.nHeight, 120891U);
-    BOOST_CHECK_EQUAL(cc2.out.nValue, 110397);
+    BOOST_CHECK_EQUAL(cc2.out.nValue.GetAmount(), 110397);
     BOOST_CHECK_EQUAL(HexStr(cc2.out.scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
 
     // Smallest possible example
@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     ss3 >> cc3;
     BOOST_CHECK_EQUAL(cc3.fCoinBase, false);
     BOOST_CHECK_EQUAL(cc3.nHeight, 0U);
-    BOOST_CHECK_EQUAL(cc3.out.nValue, 0);
+    BOOST_CHECK_EQUAL(cc3.out.nValue.GetAmount(), 0);
     BOOST_CHECK_EQUAL(cc3.out.scriptPubKey.size(), 0U);
 
     // scriptPubKey that ends beyond the end of the stream
@@ -546,7 +546,7 @@ static void SetCoinsValue(CAmount value, Coin& coin)
     coin.Clear();
     assert(coin.IsSpent());
     if (value != PRUNED) {
-        coin.out.nValue = value;
+        coin.out.nValue.SetToAmount(value);
         coin.nHeight = 1;
         assert(!coin.IsSpent());
     }
@@ -577,7 +577,7 @@ void GetCoinsMapEntry(const CCoinsMap& map, CAmount& value, char& flags)
         if (it->second.coin.IsSpent()) {
             value = PRUNED;
         } else {
-            value = it->second.coin.out.nValue;
+            value = it->second.coin.out.nValue.GetAmount();
         }
         flags = it->second.flags;
         assert(flags != NO_ENTRY);
@@ -715,7 +715,7 @@ static void CheckAddCoinBase(CAmount base_value, CAmount cache_value, CAmount mo
     char result_flags;
     try {
         CTxOut output;
-        output.nValue = modify_value;
+        output.nValue.SetToAmount(modify_value);
         test.cache.AddCoin(OUTPOINT.second, Coin(std::move(output), 1, coinbase), coinbase);
         test.cache.SelfTest();
         GetCoinsMapEntry(test.cache.map(), result_value, result_flags);

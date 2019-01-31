@@ -6,13 +6,16 @@
 #include <test/data/tx_valid.json.h>
 #include <test/test_bitcoin.h>
 
+#include <chainparams.h>
 #include <clientversion.h>
 #include <checkqueue.h>
+#include <confidential_validation.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>
 #include <keystore.h>
+#include <confidential_validation.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <script/script.h>
@@ -348,7 +351,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout[1].nAsset = Params().GetConsensus().pegged_asset;
     t1.vout[1].scriptPubKey = CScript();
 
-    BOOST_CHECK(CTransaction(t1).GetFee()[Params().GetConsensus().pegged_asset] == (50+21+22)*CENT - 90*CENT);
+    BOOST_CHECK(GetFeeMap(CTransaction(t1))[Params().GetConsensus().pegged_asset] == (50+21+22)*CENT - 90*CENT);
     BOOST_CHECK(AreInputsStandard(t1, coins));
     BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50+21+22)*CENT);
 }
@@ -502,10 +505,9 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
     }
 
     for(uint32_t i = 0; i < mtx.vin.size(); i++) {
-        std::vector<CScriptCheck> vChecks;
+        std::vector<CScriptCheck*> vChecks;
         CScriptCheck check(coins[tx.vin[i].prevout.n].out, tx, i, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false, &txdata);
-        vChecks.push_back(CScriptCheck());
-        check.swap(vChecks.back());
+        vChecks.push_back(&check);
         control.Add(vChecks);
     }
 
